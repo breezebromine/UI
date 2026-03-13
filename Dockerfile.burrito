@@ -1,0 +1,30 @@
+FROM hexpm/elixir:1.17.3-erlang-27.1.1-debian-trixie-20251208-slim
+
+# 安装构建依赖
+RUN apt-get update && \
+    apt-get install -y build-essential git curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 安装 hex 和 rebar
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
+# 复制项目文件
+COPY . .
+
+# 安装依赖
+RUN mix deps.get
+
+# 设置环境
+ENV MIX_ENV=prod
+
+# 编译资产
+RUN mix assets.setup
+RUN mix assets.deploy
+
+# 打包所有平台
+RUN mix release poly_copy --overwrite
+
+CMD ["bash"]

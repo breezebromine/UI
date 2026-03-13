@@ -13,6 +13,8 @@ defmodule Polyx.CopyTrading.TradeExecutor do
   alias Polyx.CopyTrading.Settings
   alias Polyx.Trades.Trade
   alias Polyx.Repo
+  alias Polyx.DiscordNotifier
+  alias Polyx.Credentials
 
   defstruct settings: %{
               sizing_mode: :fixed,
@@ -110,6 +112,22 @@ defmodule Polyx.CopyTrading.TradeExecutor do
                  price: price
                }) do
             {:ok, _result} ->
+              # Send Discord notification after successful retry
+              credentials = Credentials.get_or_create()
+
+              trade_info = %{
+                type: "copy_retry",
+                side: db_trade.side,
+                size: Decimal.to_float(db_trade.size),
+                price: price,
+                market: db_trade.title,
+                outcome: db_trade.outcome
+              }
+
+              Task.start(fn ->
+                DiscordNotifier.notify_trade_execution(trade_info, credentials)
+              end)
+
               {"executed", DateTime.utc_now(), nil}
 
             {:error, reason} ->
@@ -275,6 +293,22 @@ defmodule Polyx.CopyTrading.TradeExecutor do
                price: price
              }) do
           {:ok, _result} ->
+            # Send Discord notification after successful trade execution
+            credentials = Credentials.get_or_create()
+
+            trade_info = %{
+              type: "copy",
+              side: original_trade["side"],
+              size: size,
+              price: price,
+              market: original_trade["title"],
+              outcome: original_trade["outcome"]
+            }
+
+            Task.start(fn ->
+              DiscordNotifier.notify_trade_execution(trade_info, credentials)
+            end)
+
             {"executed", DateTime.utc_now(), nil}
 
           {:error, reason} ->

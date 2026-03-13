@@ -42,7 +42,6 @@ defmodule Polyx.Credentials do
     |> unique_constraint(:key)
     |> validate_wallet_address(:wallet_address)
     |> validate_wallet_address(:signer_address)
-    |> downcase_wallet_addresses()
   end
 
   defp validate_wallet_address(changeset, field) do
@@ -54,16 +53,6 @@ defmodule Polyx.Credentials do
       end
     end)
   end
-
-  defp downcase_wallet_addresses(changeset) do
-    changeset
-    |> update_change(:wallet_address, &downcase_if_present/1)
-    |> update_change(:signer_address, &downcase_if_present/1)
-  end
-
-  defp downcase_if_present(nil), do: nil
-  defp downcase_if_present(""), do: ""
-  defp downcase_if_present(value), do: String.downcase(value)
 
   @doc """
   Gets the credentials record, creating a default one if it doesn't exist.

@@ -9,6 +9,8 @@ defmodule PolyxWeb.HomeLive do
       CopyTrading.subscribe()
       # Refresh account summary every 30 seconds
       :timer.send_interval(30_000, self(), :refresh_account)
+      # Load account summary asynchronously so the page renders immediately
+      send(self(), :load_account_summary)
     end
 
     tracked_users = CopyTrading.list_tracked_users()
@@ -22,9 +24,6 @@ defmodule PolyxWeb.HomeLive do
     # Track which original trade IDs have been copied
     copied_trade_ids = MapSet.new(Enum.map(copy_trades, & &1.original_trade_id))
 
-    # Get account summary (balance + positions)
-    account_summary = fetch_account_summary()
-
     {:ok,
      socket
      |> assign(:page_title, "Copy Trading")
@@ -37,7 +36,7 @@ defmodule PolyxWeb.HomeLive do
      |> assign(:credentials_form, Polyx.Credentials.to_raw_map())
      |> assign(:show_credentials, false)
      |> assign(:copied_trade_ids, copied_trade_ids)
-     |> assign(:account_summary, account_summary)
+     |> assign(:account_summary, %{usdc_balance: nil, positions_value: 0.0, total_pnl: 0.0, positions_count: 0})
      |> assign(:feed_filter, nil)
      |> assign(:editing_user, nil)
      |> assign(:show_archived, false)
@@ -422,8 +421,28 @@ defmodule PolyxWeb.HomeLive do
   end
 
   @impl true
+  def handle_info(:load_account_summary, socket) do
+    pid = self()
+    Task.start(fn ->
+      summary = fetch_account_summary()
+      send(pid, {:account_summary_loaded, summary})
+    end)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:account_summary_loaded, summary}, socket) do
+    {:noreply, assign(socket, :account_summary, summary)}
+  end
+
+  @impl true
   def handle_info(:refresh_account, socket) do
-    {:noreply, assign(socket, :account_summary, fetch_account_summary())}
+    pid = self()
+    Task.start(fn ->
+      summary = fetch_account_summary()
+      send(pid, {:account_summary_loaded, summary})
+    end)
+    {:noreply, socket}
   end
 
   @impl true

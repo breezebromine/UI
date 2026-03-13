@@ -18,6 +18,11 @@ if username = System.get_env("ADMIN_USERNAME") do
   end
 end
 
+# Discord webhook URL for notifications
+if discord_webhook_url = System.get_env("DISCORD_WEBHOOK_URL") do
+  config :polyx, :discord_webhook_url, discord_webhook_url
+end
+
 if config_env() == :prod do
   # Database is created next to the binary itself
   # __BURRITO_BIN_PATH is set by Burrito to the original binary location
